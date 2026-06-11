@@ -27,6 +27,7 @@ Welcome to the evaluation platform API documentation.
 function App() {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const [code, setCode] = useState('// Write your code here\nconsole.log("Hello, Bridge.AI!");\n');
 
   useEffect(() => {
@@ -48,8 +49,8 @@ function App() {
 
       xtermRef.current = term;
 
-      // Mock WebSocket Connection for UI
-      const ws = new WebSocket('ws://localhost:8080/telemetry');
+      const ws = new WebSocket('ws://localhost:8080/ws/telemetry');
+      wsRef.current = ws;
 
       ws.onopen = () => {
         term.writeln('\x1b[32mConnected to backend.\x1b[0m');
@@ -81,12 +82,33 @@ function App() {
     }
   }, []);
 
+  const handleRunSubmit = () => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        if (xtermRef.current) {
+            xtermRef.current.writeln('\x1b[33mSubmitting code execution request...\x1b[0m');
+        }
+        const payload = {
+            user_id: "demo-user-123",
+            challenge_id: "challenge-abc",
+            code_body: code
+        };
+        wsRef.current.send(JSON.stringify(payload));
+    } else {
+        if (xtermRef.current) {
+            xtermRef.current.writeln('\x1b[31mWebSocket is not connected.\x1b[0m');
+        }
+    }
+  };
+
   return (
     <div className="app-container">
       <div className="left-pane">
         <Markdown>{markdownContent}</Markdown>
       </div>
       <div className="right-pane">
+        <div className="editor-toolbar" style={{ padding: '10px', backgroundColor: '#2d2d2d', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'flex-end' }}>
+            <button onClick={handleRunSubmit} style={{ padding: '8px 16px', backgroundColor: '#007acc', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Run/Submit</button>
+        </div>
         <div className="editor-container">
           <Editor
             height="100%"
