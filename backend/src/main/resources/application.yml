@@ -2,9 +2,9 @@ spring:
   application:
     name: evaluation
   datasource:
-    url: jdbc:postgresql://localhost:5432/evaluation_db
-    username: myuser
-    password: mypassword
+    url: jdbc:postgresql://localhost:5432/${POSTGRES_DB:evaluation_db}
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:postgres}
   jpa:
     hibernate:
       ddl-auto: update
