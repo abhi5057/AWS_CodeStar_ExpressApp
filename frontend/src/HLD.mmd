@@ -1,0 +1,38 @@
+---
+references:
+  - "File: /frontend/src/App.tsx"
+generationTime: 2026-06-12T05:27:02.224Z
+---
+flowchart TD
+    A["App component mount"] --> B["Initialize refs and code state"]
+    B --> C["Render UI layout"]
+
+    C --> D{"useEffect runs and terminalRef exists?"}
+    D -->|Yes| E["Create Terminal and FitAddon"]
+    E --> F["Open terminal and fit to container"]
+    F --> G["Write startup messages"]
+    G --> H["Create WebSocket to ws://localhost:8080/ws/telemetry"]
+
+    H --> I{"WebSocket event handlers"}
+    I --> I1["onopen: write connected message"]
+    I --> I2["onmessage: write telemetry data"]
+    I --> I3["onerror: write connection error"]
+    I --> I4["onclose: write connection closed"]
+
+    I1 --> J["Add window resize listener"]
+    I2 --> J
+    I3 --> J
+    I4 --> J
+
+    J --> K["Cleanup on unmount: remove listener, close WebSocket, dispose terminal"]
+    D -->|No| L["Skip terminal initialization"]
+
+    C --> M["Markdown panel renders API docs"]
+    C --> N["Editor panel renders code and updates code state on change"]
+    C --> O["Run/Submit button triggers handleRunSubmit()"]
+
+    O --> P{"WebSocket connected?"}
+    P -->|Yes| Q["Write submitting message to terminal"]
+    Q --> R["Build payload: user_id, challenge_id, code_body"]
+    R --> S["Send JSON payload over WebSocket"]
+    P -->|No| T["Write 'WebSocket is not connected' to terminal"]

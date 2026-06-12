@@ -1,0 +1,21 @@
+sequenceDiagram
+  participant FE as Frontend App.tsx
+  participant WSH as TelemetryWebSocketHandler
+  participant K as Kafka
+  participant CES as CodeExecutionService
+  participant AIS as AiOrchestrationService
+  participant PG as PostgreSQL
+  participant R as Redis
+
+  FE->>WSH: WebSocket connect at /ws/telemetry
+  FE->>WSH: Send code submission payload
+  WSH->>K: Publish topic code-submissions key=sessionId
+  K->>CES: Deliver code-submissions message
+  CES->>FE: Status update Compiling
+  CES->>FE: Status update Running Test Cases
+  CES->>FE: Status update Calculating Latency
+  CES->>K: Publish topic code_evaluation_telemetry with metrics
+  K->>AIS: Deliver code_evaluation_telemetry message
+  AIS->>PG: Save UserProfile summary
+  AIS->>R: Set status user as COMPLETED
+  AIS->>FE: Send COMPLETED plus four line summary

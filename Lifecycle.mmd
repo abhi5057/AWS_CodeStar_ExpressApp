@@ -1,0 +1,21 @@
+flowchart TD
+  Start[App mounts] --> Init[Initialize refs and code state]
+  Init --> Effect[useEffect executes]
+  Effect --> Check{terminalRef exists and terminal not initialized}
+  Check -- Yes --> Term[Create xterm Terminal plus FitAddon]
+  Term --> Open[Open terminal in DOM and fit]
+  Open --> WS[Connect WebSocket to ws://localhost:8080/ws/telemetry]
+  WS --> Handlers[Register onopen onmessage onerror onclose handlers]
+  Handlers --> Resize[Attach window resize listener]
+  Resize --> Ready[UI ready for code submission]
+  Check -- No --> Ready
+
+  Ready --> Click[User clicks Run Submit]
+  Click --> Conn{WebSocket OPEN}
+  Conn -- Yes --> Payload[Build payload user_id challenge_id code_body]
+  Payload --> Send[Send JSON payload over WebSocket]
+  Send --> Stream[Receive telemetry messages and print to xterm]
+  Conn -- No --> Warn[Print websocket not connected]
+
+  Stream --> Cleanup[On unmount remove listener close WS dispose terminal]
+  Warn --> Cleanup

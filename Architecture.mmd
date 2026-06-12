@@ -1,0 +1,24 @@
+flowchart LR
+  subgraph DockerDesktop[Docker Desktop]
+    direction TB
+    ZooKeeper[bridgeai_zookeeper on 2181]
+    Kafka[bridgeai_kafka on 9092]
+    Redis[bridgeai_redis on 6379]
+    PostgresContainer[bridgeai_postgres on 5432]
+    Kafka --> ZooKeeper
+  end
+
+  subgraph HostWindows[Windows Host Services]
+    HostPostgres[Native Postgres service on 5432]
+    Backend[Spring Boot backend on 8080]
+    Frontend[Vite frontend on 5173]
+  end
+
+  Browser[Browser client] --> Frontend
+  Frontend --> Backend
+  Backend --> Kafka
+  Backend --> Redis
+  Backend --> HostPostgres
+
+  PostgresContainer -. port overlap risk on 5432 .- HostPostgres
+  Backend -. optional configuration can target .-> PostgresContainer
