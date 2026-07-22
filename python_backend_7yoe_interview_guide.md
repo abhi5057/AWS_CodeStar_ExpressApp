@@ -364,9 +364,43 @@ print(type(user.id)) # Int (parsed from string)
 
 ### Q: How does NumPy achieve such high performance compared to native Python lists?
 **Solution:**
-1. **Contiguous Memory:** NumPy arrays are stored in contiguous blocks of memory, allowing efficient CPU cache utilization.
-2. **C Implementation:** Vectorized operations are executed in highly optimized C code, avoiding the overhead of Python loops and type checking.
-3. **Static Typing:** Arrays hold elements of a single C data type, avoiding Python's object overhead (reference counts, type pointers).
+1. **Contiguous Memory:** NumPy arrays are stored in contiguous blocks of memory, allowing efficient CPU cache utilization (cache locality).
+2. **C Implementation:** Vectorized operations are executed in highly optimized C code, avoiding the overhead of Python loops and the GIL.
+3. **Static Typing:** Arrays hold elements of a single C data type, avoiding Python's object overhead (reference counts, type pointers, and dynamic type checking on every iteration).
+
+### Q: Explain Broadcasting in NumPy. How does it work?
+**Solution:**
+Broadcasting is a mechanism that allows NumPy to perform arithmetic operations on arrays of different shapes without explicitly copying data to make them the same size.
+**Rules of Broadcasting:**
+NumPy compares the dimensions of the two arrays starting from the trailing (rightmost) dimensions. Two dimensions are compatible if:
+1. They are equal.
+2. One of them is 1 (in which case, the array with size 1 is "stretched" to match the other array's dimension).
+**Example:**
+If you have a 2D image array of shape `(256, 256, 3)` (RGB) and you want to scale the color channels by a 1D array `[0.5, 0.5, 0.5]` of shape `(3,)`, NumPy broadcasts the 1D array across the spatial dimensions automatically.
+```python
+import numpy as np
+image = np.ones((256, 256, 3))
+scale = np.array([0.5, 0.5, 0.5]) # shape (3,)
+result = image * scale # shape (256, 256, 3)
+```
+
+### Q: What is the difference between a View and a Copy in NumPy?
+**Solution:**
+- **View:** A view is a new array object that looks at the *same* underlying memory data as the original array. Modifying the view modifies the original array. Slicing an array (e.g., `arr[1:5]`) typically returns a view, which is very fast and memory-efficient.
+- **Copy:** A copy physically duplicates the data in memory. You can force a copy using `arr.copy()`. Advanced indexing (e.g., using a list of indices or a boolean mask like `arr[arr > 5]`) always returns a copy.
+
+### Q: How does memory layout (C-order vs Fortran-order) affect performance in NumPy?
+**Solution:**
+NumPy supports two memory layouts for multidimensional arrays:
+- **C-order (Row-major):** Consecutive elements of a *row* are stored next to each other in memory. This is the default in NumPy.
+- **Fortran-order (Column-major):** Consecutive elements of a *column* are stored next to each other in memory.
+**Performance Impact:** Iterating over an array in the order it is stored in memory is much faster due to CPU caching. If you compute the sum across rows on a C-ordered array, it will be significantly faster than computing it across columns.
+
+### Q: What are "Strides" in NumPy?
+**Solution:**
+Strides are a tuple of integers indicating the number of *bytes* to step in each dimension when traversing an array.
+Instead of copying data when you reshape or transpose an array, NumPy simply changes the strides and shape metadata.
+For example, for a 2D float64 (8 bytes per item) array of shape `(3, 4)` in C-order, the strides are `(32, 8)`. To move to the next row, you jump 32 bytes (4 items * 8 bytes). To move to the next column, you jump 8 bytes. Transposing this array simply reverses the strides to `(8, 32)`, making it a virtually zero-cost operation.
 
 ### Q: What is the typical architecture for serving a Machine Learning model in a Python backend?
 **Solution:**
