@@ -8,25 +8,75 @@ This guide covers an exhaustive list of questions and solutions expected for a S
 
 ### Q: How does Python manage memory? Explain Garbage Collection and Reference Counting.
 **Solution:**
-Python primarily uses **Reference Counting** for memory management. Every object in Python has a reference count, which is incremented when a reference to it is created and decremented when a reference is deleted or goes out of scope. When the reference count reaches zero, the memory is deallocated.
-However, reference counting cannot handle **reference cycles** (e.g., Object A references Object B, and Object B references Object A). To handle this, Python includes a **Generational Garbage Collector** (GC). The GC periodically scans objects and looks for unreachable circular references. It divides objects into three generations, where newly created objects start in the first generation. Objects that survive garbage collection are promoted to older generations, which are scanned less frequently.
+Python primarily uses **Reference Counting** for memory management. Every object in CPython has a reference count (`ob_refcnt`), which is incremented when a reference to it is created and decremented when a reference is deleted or goes out of scope. When the reference count reaches zero, the memory is immediately deallocated.
+However, reference counting cannot handle **reference cycles** (e.g., Object A references Object B, and Object B references Object A, meaning their reference counts never reach zero). To handle this, CPython includes a **Generational Garbage Collector** (GC). The GC periodically scans for objects and looks for unreachable circular references. It divides objects into three generations (Generation 0, 1, and 2). Newly created objects start in Gen 0. Objects that survive a garbage collection sweep are promoted to the next generation, which are scanned less frequently, optimizing the performance of the GC.
+
+### Q: What is the purpose of `__slots__` and how does it affect memory?
+**Solution:**
+By default, Python instances store their attributes in a dynamic dictionary (`__dict__`). While flexible, dictionaries have significant memory overhead due to hash table allocation.
+When creating millions of instances of a class, this memory overhead can be crippling. Defining `__slots__` in a class tells Python not to create a `__dict__` for instances and instead reserves space for a fixed set of attributes in a struct-like format. This dramatically reduces the memory footprint of each instance and can slightly improve attribute access speed.
 
 ### Q: What is the Global Interpreter Lock (GIL)? How does it affect multi-threading in Python, and how do you bypass it?
 **Solution:**
-The GIL is a mutex that protects access to Python objects, preventing multiple native threads from executing Python bytecodes at once in CPython. This means CPU-bound multi-threading in Python does not achieve true parallelism.
-- **I/O Bound tasks:** Threads are useful because the GIL is released during I/O operations (network requests, file reading).
-- **CPU Bound tasks:** Threads will not give a performance boost. To bypass the GIL for CPU-bound tasks, we use the `multiprocessing` module, which spawns separate OS processes, each with its own Python interpreter and memory space, effectively bypassing the GIL. Alternatively, extensions written in C (like NumPy) can release the GIL during intense computations.
+The GIL is a mutex that protects access to CPython's internal memory state (like reference counts), preventing multiple native OS threads from executing Python bytecodes simultaneously. This means CPU-bound multi-threading in CPython does not achieve true parallelism.
+- **I/O Bound tasks:** Threads are useful because the GIL is released during I/O operations (network requests, file reading). Multithreading works well here.
+- **CPU Bound tasks:** Threads will not give a performance boost and might even perform worse due to context switching overhead. To bypass the GIL for CPU-bound tasks, we use the `multiprocessing` module, which spawns separate OS processes, each with its own Python interpreter and memory space, effectively bypassing the GIL. Alternatively, extensions written in C (like NumPy) can release the GIL during intense computations. *(Note: PEP 703 aims to make the GIL optional in future Python versions, e.g., Python 3.13+).*
 
-### Q: Explain `asyncio`. How does the event loop work in Python?
+### Q: Explain the differences between Threads, Multiprocessing, and Asyncio in Python.
 **Solution:**
-`asyncio` is a library to write concurrent code using the `async`/`await` syntax, based on an **event loop**. The event loop is the core of asynchronous programming; it runs asynchronous tasks and callbacks, performs network IO operations, and runs subprocesses.
-Unlike multi-threading (preemptive multitasking), `asyncio` uses cooperative multitasking. A coroutine voluntarily yields control back to the event loop using `await` when waiting for an I/O operation, allowing the event loop to run other coroutines. This is highly efficient for handling thousands of concurrent I/O-bound connections (e.g., in web servers like FastAPI).
+- **Multiprocessing:** Uses multiple OS processes. Bypasses the GIL. True parallelism for **CPU-bound** tasks. Heavy on memory and context switching overhead. Communication between processes requires serialization (e.g., Pipes, Queues).
+- **Threading:** Uses multiple OS threads within a single process. Subject to the GIL. Good for **I/O-bound** tasks. Lighter than processes, but threads still require OS context switching and can suffer from race conditions.
+- **Asyncio:** Uses a single thread and a single process with an **Event Loop**. Cooperative multitasking using `async/await`. Excellent for handling massive amounts of **I/O-bound** connections (e.g., WebSockets, high-concurrency APIs) with very low memory overhead per "task" compared to OS threads.
+
+### Q: Explain how the Event Loop works in `asyncio`.
+**Solution:**
+The event loop is the core of asynchronous programming in Python. It runs asynchronous tasks and callbacks, performs network IO operations, and runs subprocesses.
+Unlike preemptive multitasking (where the OS decides when to switch threads), `asyncio` uses **cooperative multitasking**. A coroutine voluntarily yields control back to the event loop using the `await` keyword when waiting for an I/O operation (like reading a socket). The event loop then suspends that coroutine and switches to another coroutine that is ready to execute, ensuring the single thread is never blocked waiting for I/O.
+
+### Q: What are Python Decorators and how do they work? Explain `functools.wraps`.
+**Solution:**
+A decorator is a function that takes another function and extends its behavior without explicitly modifying it. It leverages the fact that functions in Python are first-class objects (can be passed as arguments and returned from other functions).
+When you use a decorator, the metadata of the original function (like `__name__` and `__doc__`) is replaced by the wrapper function. `functools.wraps` is a utility decorator applied to the wrapper function to copy the original function's metadata back, preserving introspectability and debugging tools.
+```python
+from functools import wraps
+
+def timing_decorator(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        print(f"Calling {func.__name__}")
+        return func(*args, **kwargs)
+    return wrapper
+```
+
+### Q: Explain Generators, Iterators, and the `yield` keyword.
+**Solution:**
+- An **Iterator** is an object that implements the Iterator Protocol, meaning it has `__iter__()` and `__next__()` methods. It remembers its state and returns the next value when `next()` is called, raising `StopIteration` when exhausted.
+- A **Generator** is a simpler way to create an iterator using a function that contains one or more `yield` statements.
+When a generator function is called, it returns a generator object without starting execution. When `next()` is called, it executes until it hits a `yield`, returns the yielded value, and suspends its state (local variables, instruction pointer). Subsequent calls resume exactly where it left off. This is highly memory-efficient for processing large data streams (e.g., reading a massive file line-by-line) because it evaluates elements lazily.
+
+### Q: What are Descriptors in Python?
+**Solution:**
+A Descriptor is an object attribute with "binding behavior", meaning its attribute access has been overridden by methods in the descriptor protocol: `__get__()`, `__set__()`, and `__delete__()`.
+Descriptors form the basis for many core Python features, including properties (`@property`), methods, static methods (`@staticmethod`), class methods (`@classmethod`), and `super()`.
+They are heavily used in ORMs (like Django or SQLAlchemy) to map class attributes to database columns.
+
+### Q: Explain the difference between `__new__` and `__init__`.
+**Solution:**
+- `__new__(cls, *args, **kwargs)`: This is the actual **constructor**. It is a static method responsible for creating and returning a new instance of the class. It allocates memory for the object.
+- `__init__(self, *args, **kwargs)`: This is the **initializer**. It is called *after* `__new__` has returned the instance. It receives the newly created instance as `self` and is used to initialize its state.
+`__new__` is typically overridden when subclassing immutable types (like `tuple` or `str`) or when implementing patterns like Singleton.
+
+### Q: What is MRO (Method Resolution Order) and how does `super()` work?
+**Solution:**
+MRO is the order in which Python searches for base classes when resolving a method or attribute in a class hierarchy, especially in Multiple Inheritance. Python uses the **C3 Linearization** algorithm to compute the MRO, which ensures a monotonic order (a subclass always precedes its parents, and the order of parents in the class definition is preserved).
+You can inspect the MRO using the `__mro__` attribute or the `mro()` method.
+`super()` returns a proxy object that delegates method calls to a parent or sibling class based on the MRO. In multiple inheritance, `super()` does not simply call the "parent", it calls the *next class in the MRO*, which enables cooperative multiple inheritance.
 
 ### Q: What are Metaclasses in Python? When would you use them?
 **Solution:**
 In Python, classes are objects too. Just as a class defines the behavior of an instance, a **metaclass** defines the behavior of a class. The default metaclass is `type`.
 You would use a metaclass to intercept class creation, modify class attributes, or enforce certain patterns across multiple classes.
-**Example usage:** Django's ORM uses metaclasses to parse model fields and dynamically create database schemas.
+**Example usage:** Django's ORM uses metaclasses to parse model fields and dynamically create database schemas, and abstract base classes (`abc.ABCMeta`) use them to enforce method implementation.
 ```python
 class SingletonMeta(type):
     _instances = {}
@@ -41,7 +91,7 @@ class Database(metaclass=SingletonMeta):
 
 ### Q: How do context managers work? Write a custom context manager.
 **Solution:**
-Context managers are used to manage resources, ensuring they are properly acquired and released (e.g., opening files, database connections). They are implemented using `__enter__` and `__exit__` dunder methods, or the `@contextlib.contextmanager` decorator.
+Context managers are used to manage resources, ensuring they are properly acquired and released (e.g., opening files, database connections, locks). They are implemented using the Context Management Protocol, consisting of `__enter__` and `__exit__` dunder methods. They can also be created using the `@contextlib.contextmanager` decorator combined with a generator.
 ```python
 class Timer:
     import time
@@ -52,10 +102,27 @@ class Timer:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.end = self.time.time()
         print(f"Time taken: {self.end - self.start}s")
-
-with Timer():
-    sum(range(1000000))
+        # Returning True suppresses exceptions
+        return False
 ```
+
+### Q: Explain advanced type hinting: Generics, `TypeVar`, and `Protocol`.
+**Solution:**
+Type hints in Python improve static analysis (e.g., via `mypy`).
+- **`TypeVar` & Generics:** Used to define functions or classes that can operate on any type in a type-safe way.
+  ```python
+  from typing import TypeVar, Generic
+  T = TypeVar('T')
+  class Stack(Generic[T]):
+      def push(self, item: T) -> None: ...
+      def pop(self) -> T: ...
+  ```
+- **`Protocol` (Duck Typing):** Introduced in Python 3.8, it allows structural subtyping (like interfaces in Go/TypeScript). If an object has the methods defined in the Protocol, it is considered a subtype, even if it doesn't explicitly inherit from it.
+  ```python
+  from typing import Protocol
+  class Drawable(Protocol):
+      def draw(self) -> None: ...
+  ```
 
 ---
 
