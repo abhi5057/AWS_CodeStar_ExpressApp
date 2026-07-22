@@ -4,6 +4,31 @@ This guide covers an exhaustive list of questions and solutions expected for a S
 
 ---
 
+## 0. Interview Progression Expectations (Junior to Senior)
+
+Interviewers look for different signals based on years of experience. Here is how expectations shift:
+
+### Junior / Intern (0-2 YoE)
+- **What's tested:** Basic Python syntax, data types, control flow, list comprehensions, OOP basics, SQL fundamentals, and basic problem-solving.
+- **Common pitfalls:** Freezing on syntax, inability to write a function from scratch without heavy documentation reliance, not understanding what mutable default arguments do, confusing `append()` vs `extend()`, or praising an ORM without knowing how to write basic raw SQL.
+- **Expected answers:**
+  - *Gotcha Question:* `def add_item(item, lst=[]): lst.append(item); return lst`. (Junior must know that default arguments are evaluated once at function definition, causing state to persist between calls. Fix: `lst=None`).
+  - *API Design:* Should know standard HTTP verbs (GET, POST, PUT, DELETE) and status codes (200, 201, 400, 404, 500) rather than putting everything under POST.
+
+### Mid-Level (3-5 YoE)
+- **What's tested:** Generators, context managers, decorators, error handling, ORM optimization (N+1 problem), caching strategies, Docker basics, and unit/integration testing (pytest).
+- **Common pitfalls:** Knowing the concepts but failing to connect them to production scenarios. For example, knowing what a generator is but not knowing *when* to use it (e.g., streaming a 50GB CSV file instead of loading it into a list).
+- **Expected answers:**
+  - *Decorators:* Can explain how to write one, use `functools.wraps`, and give real-world examples (e.g., `@login_required`, `@retry`, `@rate_limit`).
+  - *Databases:* Understands the N+1 query problem in Django/SQLAlchemy and how to fix it using `select_related` or `joinedload`.
+
+### Senior (7+ YoE)
+- **What's tested:** Python internals (GIL, GC, memory profiling), Metaclasses, Asyncio event loops, System Design, Architecture trade-offs, CI/CD, Observability, and Mentorship code review philosophy.
+- **Common pitfalls:** Giving a single "textbook" answer without discussing architectural trade-offs. Failing to consider scale, deployment, or database locking mechanisms.
+- **Expected answers:** Can discuss the implications of CPU-bound vs I/O-bound tasks in Python, knows how to design microservices using Saga patterns, and understands how to safely roll out schema migrations with zero downtime.
+
+---
+
 ## 1. Python Core & Advanced
 
 ### Q: How does Python manage memory? Explain Garbage Collection and Reference Counting.
