@@ -45,13 +45,57 @@ When creating millions of instances of a class, this memory overhead can be crip
 **Solution:**
 The GIL is a mutex that protects access to CPython's internal memory state (like reference counts), preventing multiple native OS threads from executing Python bytecodes simultaneously. This means CPU-bound multi-threading in CPython does not achieve true parallelism.
 - **I/O Bound tasks:** Threads are useful because the GIL is released during I/O operations (network requests, file reading). Multithreading works well here.
-- **CPU Bound tasks:** Threads will not give a performance boost and might even perform worse due to context switching overhead. To bypass the GIL for CPU-bound tasks, we use the `multiprocessing` module, which spawns separate OS processes, each with its own Python interpreter and memory space, effectively bypassing the GIL. Alternatively, extensions written in C (like NumPy) can release the GIL during intense computations. *(Note: PEP 703 aims to make the GIL optional in future Python versions, e.g., Python 3.13+).*
+- **CPU Bound tasks:** Threads will not give a performance boost and might even perform worse due to context switching overhead. To bypass the GIL for CPU-bound tasks, we use the `multiprocessing` module, which spawns separate OS processes, each with its own Python interpreter and memory space, effectively bypassing the GIL. Alternatively, extensions written in C (like NumPy) can release the GIL during intense computations.
 
 ### Q: Explain the differences between Threads, Multiprocessing, and Asyncio in Python.
 **Solution:**
 - **Multiprocessing:** Uses multiple OS processes. Bypasses the GIL. True parallelism for **CPU-bound** tasks. Heavy on memory and context switching overhead. Communication between processes requires serialization (e.g., Pipes, Queues).
 - **Threading:** Uses multiple OS threads within a single process. Subject to the GIL. Good for **I/O-bound** tasks. Lighter than processes, but threads still require OS context switching and can suffer from race conditions.
 - **Asyncio:** Uses a single thread and a single process with an **Event Loop**. Cooperative multitasking using `async/await`. Excellent for handling massive amounts of **I/O-bound** connections (e.g., WebSockets, high-concurrency APIs) with very low memory overhead per "task" compared to OS threads.
+
+### Q: What libraries would you use to handle Multithreading and Multiprocessing in Python?
+**Solution:**
+While you can use the low-level `threading` and `multiprocessing` modules directly, the modern and preferred approach for managing pools of workers is `concurrent.futures`.
+- **`ThreadPoolExecutor`:** Used for I/O bound tasks.
+- **`ProcessPoolExecutor`:** Used for CPU bound tasks.
+```python
+import concurrent.futures
+import requests
+
+urls = ['http://example.com', 'http://example.org', 'http://example.net']
+
+def fetch_url(url):
+    return requests.get(url).status_code
+
+# Using a context manager ensures threads are cleaned up properly
+with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+    # Map the function over the iterable of URLs concurrently
+    results = list(executor.map(fetch_url, urls))
+print(results)
+```
+
+### Q: What are Race Conditions in Python multithreading, and how do you prevent them?
+**Solution:**
+Even with the GIL, race conditions can occur. The GIL protects *Python's internal data structures*, but it does not protect *your application's data structures* from thread interleaving during non-atomic operations.
+For example, `x += 1` is not atomic; it involves reading `x`, incrementing the value, and writing it back. The GIL can be released mid-operation, causing another thread to read stale data.
+To prevent this, you must use **Locks** from the `threading` module:
+```python
+import threading
+
+lock = threading.Lock()
+x = 0
+
+def increment():
+    global x
+    with lock: # Acquires the lock, preventing other threads from executing this block
+        x += 1
+```
+
+### Q: How has Python recently improved multithreading and parallelism (Python 3.12 / 3.13)?
+**Solution:**
+Python is actively evolving to solve the GIL bottleneck:
+1. **Per-Interpreter GIL (PEP 684) - Python 3.12:** Previously, a single GIL existed per Python *process*. Now, developers can spawn multiple sub-interpreters within the same process, and each sub-interpreter has its *own* GIL. This allows true multi-core parallelism using threads (via C-API currently, with standard library exposure planned) while sharing a process space.
+2. **Optional GIL / Free-Threading (PEP 703) - Python 3.13:** Python 3.13 introduced a build configuration to disable the GIL entirely. This represents a massive shift towards true free-threading, allowing standard `threading` to utilize multiple CPU cores for CPU-bound tasks, though it requires C-extensions to be updated for thread safety.
 
 ### Q: Explain how the Event Loop works in `asyncio`.
 **Solution:**
