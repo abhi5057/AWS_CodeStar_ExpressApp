@@ -360,7 +360,7 @@ print(type(user.id)) # Int (parsed from string)
 
 ---
 
-## 5. NumPy & AI/ML Basics
+## 5. NumPy, LLMs & AI/ML Basics
 
 ### Q: How does NumPy achieve such high performance compared to native Python lists?
 **Solution:**
@@ -411,6 +411,31 @@ Since ML models are often CPU/GPU intensive and synchronous, they shouldn't bloc
 3. A pool of worker processes (which preload the heavy ML model into memory) consumes from the queue, performs inference (using PyTorch/TensorFlow ONNX runtime), and stores the result in a cache or DB.
 4. The API either polls for the result or uses WebSockets to notify the client.
 Alternatively, use specialized model servers like **Triton Inference Server** or **TensorFlow Serving** and have the Python backend communicate with them via gRPC.
+
+### Q: Explain the role of LangChain in building LLM applications. What are its core components?
+**Solution:**
+LangChain is a framework for developing applications powered by LLMs. It abstracts away the complexity of integrating with various LLM providers and external data sources.
+**Core Components:**
+- **Models/LLMs:** Wrappers around API calls (OpenAI, Anthropic, local models).
+- **Prompts:** Templating systems to dynamically construct instructions based on user input.
+- **Chains:** Sequences of calls (e.g., prompt -> LLM -> output parser). LCEL (LangChain Expression Language) is the modern, declarative way to build these.
+- **Retrieval (RAG):** Document loaders, text splitters, embeddings, and vector store integrations to pull proprietary data into the LLM context.
+- **Tools/Agents:** Allowing the LLM to decide when to call external APIs (e.g., searching Google, querying a database) to accomplish a task.
+
+### Q: What problem does LangGraph solve compared to standard LangChain Agents?
+**Solution:**
+Standard LangChain agents operate as a DAG (Directed Acyclic Graph) or a simple loop (like ReAct), which can become unpredictable and hard to control for complex, multi-step tasks.
+**LangGraph** solves this by allowing developers to model agent workflows as **stateful, cyclic graphs**.
+- **State Management:** You define a typed `State` object that gets passed around and updated by every node in the graph.
+- **Cycles:** Unlike simple chains, LangGraph allows loops (e.g., an agent writes code -> runs tests -> if tests fail, loops back to write code).
+- **Human-in-the-Loop:** Because state is checkpointed at every step (often to SQLite/Postgres), you can pause execution, ask a human to approve an action, and resume the graph exactly where it left off.
+
+### Q: How do you evaluate and debug LLM applications in production? Explain LangSmith.
+**Solution:**
+Traditional unit tests are deterministic, but LLMs are probabilistic, making testing difficult.
+**LangSmith** is an observability and evaluation platform designed specifically for LLMs.
+- **Tracing (Observability):** It logs every step of a complex chain or agent execution. If an agent gives a bad answer, you can trace exactly which prompt was used, which documents were retrieved, and how much latency/cost was incurred.
+- **Evaluation:** You can create datasets of inputs and expected outputs. LangSmith allows you to run your chain against these datasets and use LLM-as-a-judge (another LLM) or deterministic heuristics to score the outputs (e.g., checking for hallucinations, tone, or factual accuracy) automatically in your CI/CD pipeline.
 
 ---
 
